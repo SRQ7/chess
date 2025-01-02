@@ -1,0 +1,3 @@
+{
+'Mikee': {'password': '21b6747676e176c826f8048994b3c63ab9dc914fc0b3d487dd7294a5c021e315', 'gamesPlayed': 0, 'gamesWon': 0, 'gamesLost': 0, 'winRate': 0.0, 'maxAiBeaten': 0}
+}
