@@ -149,8 +149,8 @@ class Board:
     def __init__(self):
         self.array = np.full((8, 8), fill_value = None)
         self.guiArray = np.full((8, 8), fill_value = None)
-        self.arrangeStartPos()
         self.performOnPieces = np.vectorize(self.performOnPiece) # Vectorise to apply function to array
+        self.arrangeStartPos()
 
     # Return human-readable chess board if (self) object called as string
     def __str__(self):
@@ -196,6 +196,7 @@ class Board:
         self.array[position[0]][position[1]] = piece
 
     def draw(self):
+        pieceImgOffset = (17, 15)
         # Draw board
         for i in range(8):
             for j in range(8):
@@ -203,7 +204,7 @@ class Board:
                 # Draw pieces
                 piece = self.array[i][j]
                 if piece != None:
-                    piecePos = self.guiArray[i][j].pos
+                    piecePos = (self.guiArray[i][j].pos[0] + pieceImgOffset[0], self.guiArray[i][j].pos[1] + pieceImgOffset[1])
                     pieceImg = Image(f"assets/pieces/{piece.clr[0]}_{piece.type}.png", piecePos)
                     pieceImg.draw()
 
@@ -212,17 +213,17 @@ class Pieces:
         self.type = pieceType
         self.clr = pieceColour
 
-# Create local mode
-chessBoard = Board()
-chessBoard.draw()
-
-# Create AI mode
-
 # Initialise database
 db = Database("users.txt")
 
 # Create back button (previous screen)
 backButtonImg = Image("assets/buttons/back_button.png", (0,0))
+
+# Create local mode
+localBoard = Board()
+
+# Create AI mode
+aiBoard = Board()
 
 # Create login screen
 usernameBox = Textbox((420, 350), (600, 50), clrWhite, "", 40, clrBlack, (5, -4))
@@ -250,7 +251,7 @@ statsConfBoxes = [userStatsBox, gamesPlayedBox, gamesWonBox, gamesLostBox, winRa
 # Create admin only options for this screen
 userLookupBox = Textbox((820,380), (380,50), clrWhite, "", 35, clrBlack, (10, -5))
 searchButtonImg = Image("assets/buttons/search_button.png", (1200,380))
-statsViewUser = Player(None, None)
+statsViewUser = None
 
 # Main loop
 while running == True:
@@ -276,6 +277,8 @@ while running == True:
                         currentUser = Player(usernameBox.txt, getHash(passwordBox.txt))
                         db.updateDict(currentUser)
                         statsViewUser = copy.deepcopy(currentUser)
+                        if currentUser.name == "Mikee":
+                            isAdmin = True
                         changeScreen("menu")
                     else:
                         print("Username already exists.")
@@ -398,16 +401,18 @@ while running == True:
     elif currentScreen == "local":
         display.fill(clrBlue)
         backButtonImg.draw()
-        chessBoard.draw()
+        localBoard.draw()
 
     # Draw AI mode
     elif currentScreen == "ai":
         display.fill(clrBlue)
         backButtonImg.draw()
+        aiBoard.draw()
 
     # Draw stats and config screen
     elif currentScreen == "statsConf":
         display.fill(clrBlue)
+        backButtonImg.draw()
         for box in statsConfBoxes:
             box.draw()
         if isAdmin == True:
