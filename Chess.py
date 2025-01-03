@@ -1,6 +1,6 @@
 import pygame as pg
 import numpy as np
-import sys, hashlib, copy
+import sys, hashlib, copy, os
 
 # Initialise pygame window with necessary variables
 pg.init()
@@ -8,7 +8,7 @@ np.set_printoptions(linewidth=100)
 display = pg.display.set_mode((1440, 960))
 pg.display.set_caption("Chess")
 clock = pg.time.Clock()
-currentScreen = "login"
+currentScreen = "local"
 previousScreen = None
 currentUser = None
 isAdmin = False
@@ -17,8 +17,10 @@ running = True
 # Colours
 clrWhite = pg.Color("white")
 clrBlack = pg.Color("black")
-clrGrey = pg.Color("gray")
+clrSelected = pg.Color("gray")
 clrBlue = (59, 143, 227)
+clrLightSquare = (89, 89, 89)
+clrDarkSquare = (54, 54, 54)
 
 # Transition screen procedure
 def changeScreen(newScreen):
@@ -103,7 +105,7 @@ class Textbox(Box):
         self.txtSize = textSize
         self.txtClr = textColour
         self.txtOffset = textOffset
-        self.txtFont = pg.font.Font("game_font.ttf", self.txtSize)
+        self.txtFont = pg.font.Font("assets/game_font.ttf", self.txtSize)
 
     def draw(self):
         self.surf.fill(self.clr)
@@ -114,6 +116,7 @@ class Textbox(Box):
 # Class for image
 class Image:
     def __init__(self, imageFile, position):
+        self.name = imageFile
         self.surf = pg.image.load(imageFile).convert_alpha()
         self.pos = position
         self.rect = self.surf.get_rect(topleft = self.pos)
@@ -145,34 +148,64 @@ class Player:
 class Board:
     def __init__(self):
         self.array = np.full((8, 8), fill_value = None)
+        self.guiArray = np.full((8, 8), fill_value = None)
         self.arrangeStartPos()
+        self.performOnPieces = np.vectorize(self.performOnPiece) # Vectorise to apply function to array
 
     # Return human-readable chess board if (self) object called as string
     def __str__(self):
-        readableArray = np.full((8,8), fill_value = None)
+        newArray = copy.deepcopy(self.array)
+        newArray = self.performOnPieces(newArray, self.convertToReadable)
+        return str(newArray)
+
+    # Perform a function on a piece object
+    def performOnPiece(self, piece, function):
+        if piece != None:
+            piece = function(piece)
+        return piece
+
+    # Convert piece to readable string
+    def convertToReadable(self, piece):
+        readablePiece = f"{piece.clr[0]}_{piece.type}"
+        return readablePiece
+
+    # Set starting position for a standard chess game
+    def arrangeStartPos(self):
+        # Set board
         for i in range(8):
             for j in range(8):
-                pieceObj = self.array[i][j]
-                if pieceObj != None:
-                    readableArray[i][j] = f"{pieceObj.clr[0]}_{pieceObj.type}"
-        return str(readableArray)
+                if i % 2 == j % 2:
+                    self.guiArray[i][j] = Box((375 + j*90, 100 + i*90), (90, 90), clrLightSquare)
+                else:
+                    self.guiArray[i][j] = Box((375 + j*90, 100 + i*90), (90,90), clrDarkSquare)
 
-    # Set pieces in their starting position for a standard chess game
-    def arrangeStartPos(self):
+        # Set pieces
         backlinePieces = ["rook", "knight", "bishop", "queen", "king", "bishop", "knight", "rook"]
         for i in range(2, 6):
             for j in range(8):
                 self.array[i][j] = None
         for i in range(8):
-            self.placePiece(Pieces("pawn", "black"), (1, i))
-            self.placePiece(Pieces("pawn", "white"), (6, i))
-        for i in range(0, 8):
-            self.placePiece(Pieces(backlinePieces[i], "black"), (0, i))
-            self.placePiece(Pieces(backlinePieces[i], "white"), (7, i))
+            self.place(Pieces("pawn", "black"), (1, i))
+            self.place(Pieces("pawn", "white"), (6, i))
+        for i in range(8):
+            self.place(Pieces(backlinePieces[i], "black"), (0, i))
+            self.place(Pieces(backlinePieces[i], "white"), (7, i))
 
-    # Place a given piece object in desired position
-    def placePiece(self, pieceObject, position):
-        self.array[position[0]][position[1]] = pieceObject
+    # Place a given piece in desired position
+    def place(self, piece, position):
+        self.array[position[0]][position[1]] = piece
+
+    def draw(self):
+        # Draw board
+        for i in range(8):
+            for j in range(8):
+                self.guiArray[i][j].draw()
+                # Draw pieces
+                piece = self.array[i][j]
+                if piece != None:
+                    piecePos = self.guiArray[i][j].pos
+                    pieceImg = Image(f"assets/pieces/{piece.clr[0]}_{piece.type}.png", piecePos)
+                    pieceImg.draw()
 
 class Pieces:
     def __init__(self, pieceType, pieceColour):
@@ -181,7 +214,7 @@ class Pieces:
 
 # Create local mode
 chessBoard = Board()
-print(chessBoard)
+chessBoard.draw()
 
 # Create AI mode
 
@@ -189,7 +222,7 @@ print(chessBoard)
 db = Database("users.txt")
 
 # Create back button (previous screen)
-backButtonImg = Image("back_button.png", (0,0))
+backButtonImg = Image("assets/buttons/back_button.png", (0,0))
 
 # Create login screen
 usernameBox = Textbox((420, 350), (600, 50), clrWhite, "", 40, clrBlack, (5, -4))
@@ -216,7 +249,7 @@ searchUserDisplayBox = Textbox((600,380), (220,50), clrBlue, "Search user:", 35,
 statsConfBoxes = [userStatsBox, gamesPlayedBox, gamesWonBox, gamesLostBox, winRateBox, maxAiBeatenBox, usernameDisplayBox]
 # Create admin only options for this screen
 userLookupBox = Textbox((820,380), (380,50), clrWhite, "", 35, clrBlack, (10, -5))
-searchButtonImg = Image("search_button.png", (1200,380))
+searchButtonImg = Image("assets/buttons/search_button.png", (1200,380))
 statsViewUser = Player(None, None)
 
 # Main loop
@@ -230,9 +263,9 @@ while running == True:
             if event.type == pg.MOUSEBUTTONDOWN:
                 # If user clicks user/pass box then colour it to select it
                 if usernameBox.rect.collidepoint(event.pos):
-                    passwordBox.clr, usernameBox.clr = clrWhite, clrGrey
+                    passwordBox.clr, usernameBox.clr = clrWhite, clrSelected
                 elif passwordBox.rect.collidepoint(event.pos):
-                    usernameBox.clr, passwordBox.clr = clrWhite, clrGrey
+                    usernameBox.clr, passwordBox.clr = clrWhite, clrSelected
 
                 # If user clicks register box then validate inputs + add entry to DB
                 elif registerBox.rect.collidepoint(event.pos):
@@ -264,7 +297,7 @@ while running == True:
 
             elif event.type == pg.KEYDOWN:
                 # Collect user/pass inputs
-                if usernameBox.clr == clrGrey:
+                if usernameBox.clr == clrSelected:
                     if event.key == pg.K_RETURN:
                         usernameBox.clr = clrWhite
                     elif event.key == pg.K_BACKSPACE:
@@ -272,7 +305,7 @@ while running == True:
                     elif len(usernameBox.txt) <= 8 and event.unicode.isalnum():
                         usernameBox.txt += event.unicode
 
-                elif passwordBox.clr == clrGrey:
+                elif passwordBox.clr == clrSelected:
                     if event.key == pg.K_RETURN:
                         passwordBox.clr = clrWhite
                     elif event.key == pg.K_BACKSPACE:
@@ -324,7 +357,7 @@ while running == True:
 
                 # If admin clicks user lookup box then colour it to select it
                 elif userLookupBox.rect.collidepoint(event.pos) and isAdmin == True:
-                    userLookupBox.clr = clrGrey
+                    userLookupBox.clr = clrSelected
 
                 # If admin clicks search button then validate input and change currentUser to desired lookup
                 # Masks start at (0,0) therefore offset of -1200(x) and -380(y) is needed to detect click
@@ -341,7 +374,7 @@ while running == True:
 
             elif event.type == pg.KEYDOWN:
                 # Collect username lookup input
-                if userLookupBox.clr == clrGrey:
+                if userLookupBox.clr == clrSelected:
                     if event.key == pg.K_RETURN:
                         userLookupBox.clr = clrWhite
                     elif event.key == pg.K_BACKSPACE:
@@ -365,6 +398,7 @@ while running == True:
     elif currentScreen == "local":
         display.fill(clrBlue)
         backButtonImg.draw()
+        chessBoard.draw()
 
     # Draw AI mode
     elif currentScreen == "ai":
