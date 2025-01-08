@@ -144,18 +144,25 @@ class Player:
         self.winRate = database.dict[self.name]['winRate']
         self.maxAiBeaten = database.dict[self.name]['maxAiBeaten']
 
-# Class for chess board
 class Board:
     def __init__(self):
         self.array = np.full((8, 8), fill_value = None)
         self.guiArray = np.full((8, 8), fill_value = None)
-        self.performOnPieces = np.vectorize(self.performOnPiece) # Vectorise to apply function to array
+        self.prevMoves = []
+        self.legalMoves = []
+        self.whiteTurn = True
+        self.kingInDanger = False
+
+        # Vectorise functions to apply them to arrays instead of single items
+        self.performOnPieces = np.vectorize(self.performOnPiece)
+        self.updateLegalMovesPcs = np.vectorize(self.updateLegalMovesPc)
+
         self.arrangeStartPos()
 
     # Return human-readable chess board if (self) object called as string
     def __str__(self):
         newArray = copy.deepcopy(self.array)
-        newArray = self.performOnPieces(newArray, self.convertToReadable)
+        newArray = self.performOnPieces(newArray, self.convToReadable)
         return str(newArray)
 
     # Perform a function on a piece object
@@ -165,9 +172,33 @@ class Board:
         return piece
 
     # Convert piece to readable string
-    def convertToReadable(self, piece):
+    def convToReadable(self, piece):
         readablePiece = f"{piece.clr[0]}_{piece.type}"
         return readablePiece
+
+    # Update legal moves attribute with a given position
+    def updateLegalMovesPc(self, piece):
+        pieceLegalMoves = []
+        pieceIsWhite = False
+
+        if piece.clr == "white":
+            pieceIsWhite = True
+
+        # # If chosen piece is the same colour as the player's turn then calculate legal moves for it
+        # if pieceIsWhite == self.whiteTurn:
+        #     if piece.type == "king":
+        #
+        #     elif piece.type == "queen":
+        #
+        #     elif piece.type == "rook":
+        #
+        #     elif piece.type == "bishop":
+        #
+        #     elif piece.type == "knight":
+        #
+        #     elif piece.type == "pawn":
+
+        self.legalMoves.extend(pieceLegalMoves)
 
     # Set starting position for a standard chess game
     def arrangeStartPos(self):
@@ -195,6 +226,23 @@ class Board:
     def place(self, piece, position):
         self.array[position[0]][position[1]] = piece
 
+    # Move a piece to desired position
+    def move(self, pos1, pos2):
+        # Append move position changes and copy of piece taken to previous moves list
+        self.prevMoves.append((pos1, pos2, copy.deepcopy(self.array[pos2[0]][pos2[1]])))
+        # Copy current piece object to new position and empty old position
+        self.array[pos2[0]][pos2[1]] = copy.deepcopy(self.array[pos1[0]][pos1[1]])
+        self.array[pos1[0]][pos1[1]] = None
+        # Flip turn
+        self.whiteTurn = not self.whiteTurn
+
+    def undoMove(self):
+        prevMove = self.prevMoves.pop()
+        # Replace previous position of piece with copy of piece from current position
+        self.array[prevMove[0][0][0]][prevMove[0][0][1]] = copy.deepcopy(self.array[prevMove[0][1][0]][prevMove[0][1][1]])
+        # Replace current position with piece that was taken
+        self.array[prevMove[0][1][0]][prevMove[0][1][0]] = prevMove[0][2]
+
     def draw(self):
         pieceImgOffset = (17, 15)
         # Draw board
@@ -221,6 +269,14 @@ backButtonImg = Image("assets/buttons/back_button.png", (0,0))
 
 # Create local mode
 localBoard = Board()
+print(localBoard.whiteTurn)
+localBoard.move((6, 0), (5, 0))
+print(localBoard.whiteTurn)
+print(localBoard.prevMoves)
+print(localBoard)
+localBoard.undoMove()
+print(localBoard)
+print(localBoard.prevMoves)
 
 # Create AI mode
 aiBoard = Board()
