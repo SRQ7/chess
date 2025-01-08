@@ -151,19 +151,18 @@ class Board:
         self.prevMoves = []
         self.legalMoves = []
         self.whiteTurn = True
-        self.kingInDanger = False
+        self.kingInDanger = None
 
         # Vectorise functions to apply them to arrays instead of single items
         self.performOnPieces = np.vectorize(self.performOnPiece)
-        self.updateLegalMovesPcs = np.vectorize(self.updateLegalMovesPc)
 
         self.arrangeStartPos()
 
     # Return human-readable chess board if (self) object called as string
     def __str__(self):
-        newArray = copy.deepcopy(self.array)
-        newArray = self.performOnPieces(newArray, self.convToReadable)
-        return str(newArray)
+        readableArray = copy.deepcopy(self.array)
+        readableArray = self.performOnPieces(readableArray, self.convToReadable)
+        return str(readableArray)
 
     # Perform a function on a piece object
     def performOnPiece(self, piece, function):
@@ -171,34 +170,156 @@ class Board:
             piece = function(piece)
         return piece
 
+    # Check if position in board
+    def posValid(self, pos):
+        if (pos[0] >= 0 and pos[0] <= 7) and (pos[1] >= 0 and pos[1] <= 7):
+            return True
+        else:
+            return False
+
     # Convert piece to readable string
     def convToReadable(self, piece):
         readablePiece = f"{piece.clr[0]}_{piece.type}"
         return readablePiece
 
-    # Update legal moves attribute with a given position
-    def updateLegalMovesPc(self, piece):
-        pieceLegalMoves = []
-        pieceIsWhite = False
+    # Get colour of a position
+    def posColour(self, pos):
+        if self.array[pos] == None:
+            return None
+        else:
+            return self.array[pos].clr
 
-        if piece.clr == "white":
-            pieceIsWhite = True
+    # Get pseudo legal moves for a position
+    def getPseudoLegalMoves(self, pos):
+        piece = self.array[pos]
+        possibleMoves = []
 
-        # # If chosen piece is the same colour as the player's turn then calculate legal moves for it
-        # if pieceIsWhite == self.whiteTurn:
-        #     if piece.type == "king":
-        #
-        #     elif piece.type == "queen":
-        #
-        #     elif piece.type == "rook":
-        #
-        #     elif piece.type == "bishop":
-        #
-        #     elif piece.type == "knight":
-        #
-        #     elif piece.type == "pawn":
+        if piece != None:
+            x = pos[1]
+            y = pos[0]
 
-        self.legalMoves.extend(pieceLegalMoves)
+            if piece.type == "king":
+                # Vertical movement (up -> current pos -> down)
+                for i in range(y-1, y+2):
+                    # Horizontal movement (left -> current pos -> right)
+                    for j in range(x-1, x+2):
+                        # Assign position that is being currently examined to tempPos variable
+                        tempPos = (i, j)
+                        # Get colour of piece occupying tempPos
+                        clrCheck = self.posColour(tempPos)
+                        # Skip current pos of piece and ensure tempPos is valid board index
+                        if pos != tempPos and self.posValid(tempPos):
+                            # Ensure tempPos not occupied by friendly colour
+                            if self.posColour(tempPos) != clrCheck:
+                                possibleMoves.append((pos, tempPos))
+
+            elif piece.type == "queen":
+                # Vertical movement (current pos -> up)
+                for i in range(y-1, -1, -1):
+                    tempPos = (i, x)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+                # Vertical movement (current pos -> down)
+                for i in range(y+1, 8):
+                    tempPos = (i, x)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+                # Horizontal movement (current pos -> left)
+                for i in range(x-1, 0, -1):
+                    tempPos = (y, i)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+                # Horizontal movement (current pos -> right)
+                for i in range(x+1, 8):
+                    tempPos = (y, i)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+
+            elif piece.type == "rook":
+                # Vertical movement (current pos -> up)
+                for i in range(y-1, -1, -1):
+                    tempPos = (i, x)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+                # Vertical movement (current pos -> down)
+                for i in range(y+1, 8):
+                    tempPos = (i, x)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+                # Horizontal movement (current pos -> left)
+                for i in range(x-1, 0, -1):
+                    tempPos = (y, i)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+                # Horizontal movement (current pos -> right)
+                for i in range(x+1, 8):
+                    tempPos = (y, i)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+                        elif clrCheck == piece.clr:
+                            break
+                        else:
+                            possibleMoves.append((pos, tempPos))
+                            break
+
+            # elif piece.type == "bishop":
+            #
+            # elif piece.type == "knight":
+            #
+            # elif piece.type == "pawn":
+
+        return possibleMoves
 
     # Set starting position for a standard chess game
     def arrangeStartPos(self):
@@ -223,25 +344,39 @@ class Board:
             self.place(Pieces(backlinePieces[i], "white"), (7, i))
 
     # Place a given piece in desired position
-    def place(self, piece, position):
-        self.array[position[0]][position[1]] = piece
+    def place(self, piece, pos):
+        self.array[pos[0]][pos[1]] = piece
 
     # Move a piece to desired position
     def move(self, pos1, pos2):
-        # Append move position changes and copy of piece taken to previous moves list
-        self.prevMoves.append((pos1, pos2, copy.deepcopy(self.array[pos2[0]][pos2[1]])))
+        # Append upcoming move position changes and copy of piece taken to previous moves list
+        # If no piece taken, use NoneType to represent it
+        if self.array[pos2] == None:
+            self.prevMoves.append((pos1, pos2, None))
+        else:
+            self.prevMoves.append((pos1, pos2, (self.array[pos2].type, self.array[pos2].clr, self.array[pos2].moved)))
+
         # Copy current piece object to new position and empty old position
-        self.array[pos2[0]][pos2[1]] = copy.deepcopy(self.array[pos1[0]][pos1[1]])
-        self.array[pos1[0]][pos1[1]] = None
+        self.array[pos2] = Pieces(self.array[pos1].type, self.array[pos1].clr)
+        self.array[pos1] = None
+        self.array[pos2].moved = True
+
         # Flip turn
         self.whiteTurn = not self.whiteTurn
 
     def undoMove(self):
         prevMove = self.prevMoves.pop()
         # Replace previous position of piece with copy of piece from current position
-        self.array[prevMove[0][0][0]][prevMove[0][0][1]] = copy.deepcopy(self.array[prevMove[0][1][0]][prevMove[0][1][1]])
+        self.array[prevMove[0]] = Pieces(self.array[prevMove[1]].type, self.array[prevMove[1]].clr)
         # Replace current position with piece that was taken
-        self.array[prevMove[0][1][0]][prevMove[0][1][0]] = prevMove[0][2]
+        if prevMove[2] == None:
+            self.array[prevMove[1]] = None
+        else:
+            self.array[prevMove[1]] = Pieces(prevMove[2][0], prevMove[2][1])
+
+        # Flip turn
+        self.whiteTurn = not self.whiteTurn
+
 
     def draw(self):
         pieceImgOffset = (17, 15)
@@ -260,6 +395,7 @@ class Pieces:
     def __init__(self, pieceType, pieceColour):
         self.type = pieceType
         self.clr = pieceColour
+        self.moved = False
 
 # Initialise database
 db = Database("users.txt")
@@ -270,13 +406,10 @@ backButtonImg = Image("assets/buttons/back_button.png", (0,0))
 # Create local mode
 localBoard = Board()
 print(localBoard.whiteTurn)
-localBoard.move((6, 0), (5, 0))
-print(localBoard.whiteTurn)
-print(localBoard.prevMoves)
-print(localBoard)
-localBoard.undoMove()
-print(localBoard)
-print(localBoard.prevMoves)
+localBoard.place(Pieces("queen", "black"), (4, 4))
+testPieceMoves = localBoard.getPseudoLegalMoves((4, 4))
+for move in testPieceMoves:
+    localBoard.guiArray[move[1]].clr = clrSelected
 
 # Create AI mode
 aiBoard = Board()
