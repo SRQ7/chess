@@ -1,6 +1,6 @@
 import pygame as pg
 import numpy as np
-import sys, hashlib, copy, os
+import sys, hashlib, copy, time
 
 # Initialise pygame window with necessary variables
 pg.init()
@@ -184,28 +184,170 @@ class Board:
 
     # Get colour of a position
     def posColour(self, pos):
-        if self.array[pos] == None:
+        piece = self.array[pos]
+        if piece == None:
             return None
         else:
-            return self.array[pos].clr
+            return piece.clr
 
-    # Get pseudo legal moves for a position
-    def getPseudoLegalMoves(self, pos):
+    ## Pseudo => without considering putting own king in check
+    # Get pseudo straight-line legal moves
+    def pseudoStraightMoves(self, pos):
         piece = self.array[pos]
+        x = pos[1]
+        y = pos[0]
         possibleMoves = []
 
+        ## COMMENTS OF THIS LOOP CAN BE REFERRED TO WHEN LOOKING AT:
+        ## pseudoStraightMoves, pseudoDiagonalMoves, pseudoLegalMoves
+        # Vertical movement (current pos -> up)
+        for i in range(y-1, -1, -1):
+            # Assign position that is being currently examined to tempPos variable
+            tempPos = (i, x)
+            # Get colour of piece occupying tempPos
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    # If empty square continue traversing in same direction
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    # If friendly square stop traversing
+                    break
+                else:
+                    # If enemy square add move to possibleMoves and stop traversing
+                    possibleMoves.append((pos, tempPos))
+                    break
+        # Vertical movement (current pos -> down)
+        for i in range(y+1, 8):
+            tempPos = (i, x)
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    break
+                else:
+                    possibleMoves.append((pos, tempPos))
+                    break
+
+        # Horizontal movement (current pos -> left)
+        for i in range(x-1, -1, -1):
+            tempPos = (y, i)
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    break
+                else:
+                    possibleMoves.append((pos, tempPos))
+                    break
+        # Horizontal movement (current pos -> right)
+        for i in range(x+1, 8):
+            tempPos = (y, i)
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    break
+                else:
+                    possibleMoves.append((pos, tempPos))
+                    break
+
+        return possibleMoves
+
+    def pseudoDiagonalMoves(self, pos):
+        piece = self.array[pos]
+        x = pos[1]
+        y = pos[0]
+        possibleMoves = []
+
+        # Up-right movement (current pos -> top_right)
+        traversal_x_values = range(x+1, 8)
+        traversal_y_values = range(y-1, -1, -1)
+        for i in range(8):
+            # Assign position that is being currently examined to tempPos variable
+            tempPos = (traversal_y_values[i], traversal_x_values[i])
+            # Get colour of piece occupying tempPos
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    # If empty square continue traversing in same direction
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    # If friendly square stop traversing
+                    break
+                else:
+                    # If enemy square add move to possibleMoves and stop traversing
+                    possibleMoves.append((pos, tempPos))
+                    break
+        # Down-right movement (current pos -> bottom_right)
+        traversal_x_values = range(x+1, 8)
+        traversal_y_values = range(y+1, 8)
+        for i in range(8):
+            tempPos = (traversal_y_values[i], traversal_x_values[i])
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    break
+                else:
+                    possibleMoves.append((pos, tempPos))
+                    break
+
+        # Up-left movement (current pos -> top_left)
+        traversal_x_values = range(x-1, -1, -1)
+        traversal_y_values = range(y-1, -1, -1)
+        for i in range(8):
+            tempPos = (traversal_y_values[i], traversal_x_values[i])
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    break
+                else:
+                    possibleMoves.append((pos, tempPos))
+                    break
+        # Down-left movement (current pos -> bottom_left)
+        traversal_x_values = range(x-1, -1, -1)
+        traversal_y_values = range(y+1, 8)
+        for i in range(8):
+            tempPos = (traversal_y_values[i], traversal_x_values[i])
+            clrCheck = self.posColour(tempPos)
+            if self.posValid(tempPos):
+                if clrCheck == None:
+                    possibleMoves.append((pos, tempPos))
+                elif clrCheck == piece.clr:
+                    break
+                else:
+                    possibleMoves.append((pos, tempPos))
+                    break
+
+        return possibleMoves
+
+
+    # Get all pseudo legal moves for a position
+    def pseudoLegalMoves(self, pos):
+        piece = self.array[pos]
+        x = pos[1]
+        y = pos[0]
+        possibleMoves = []
         if piece != None:
-            x = pos[1]
-            y = pos[0]
+            straightMoves = self.pseudoStraightMoves(pos)
+            diagonalMoves = self.pseudoDiagonalMoves(pos)
+
+            # Loop through each possible move for corresponding piece
+            # If the move is valid, add it to possibleMoves
 
             if piece.type == "king":
                 # Vertical movement (up -> current pos -> down)
                 for i in range(y-1, y+2):
                     # Horizontal movement (left -> current pos -> right)
                     for j in range(x-1, x+2):
-                        # Assign position that is being currently examined to tempPos variable
                         tempPos = (i, j)
-                        # Get colour of piece occupying tempPos
                         clrCheck = self.posColour(tempPos)
                         # Skip current pos of piece and ensure tempPos is valid board index
                         if pos != tempPos and self.posValid(tempPos):
@@ -214,109 +356,21 @@ class Board:
                                 possibleMoves.append((pos, tempPos))
 
             elif piece.type == "queen":
-                # Vertical movement (current pos -> up)
-                for i in range(y-1, -1, -1):
-                    tempPos = (i, x)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
-                # Vertical movement (current pos -> down)
-                for i in range(y+1, 8):
-                    tempPos = (i, x)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
-                # Horizontal movement (current pos -> left)
-                for i in range(x-1, 0, -1):
-                    tempPos = (y, i)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
-                # Horizontal movement (current pos -> right)
-                for i in range(x+1, 8):
-                    tempPos = (y, i)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
+                if straightMoves != []:
+                    possibleMoves.extend(straightMoves)
+                if diagonalMoves != []:
+                    possibleMoves.extend(diagonalMoves)
 
             elif piece.type == "rook":
-                # Vertical movement (current pos -> up)
-                for i in range(y-1, -1, -1):
-                    tempPos = (i, x)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
-                # Vertical movement (current pos -> down)
-                for i in range(y+1, 8):
-                    tempPos = (i, x)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
-                # Horizontal movement (current pos -> left)
-                for i in range(x-1, 0, -1):
-                    tempPos = (y, i)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
-                # Horizontal movement (current pos -> right)
-                for i in range(x+1, 8):
-                    tempPos = (y, i)
-                    clrCheck = self.posColour(tempPos)
-                    if self.posValid(tempPos):
-                        if clrCheck == None:
-                            possibleMoves.append((pos, tempPos))
-                        elif clrCheck == piece.clr:
-                            break
-                        else:
-                            possibleMoves.append((pos, tempPos))
-                            break
+                if straightMoves != []:
+                    possibleMoves.extend(straightMoves)
 
-            # elif piece.type == "bishop":
-            #
+            elif piece.type == "bishop":
+                if diagonalMoves != []:
+                    possibleMoves.extend(diagonalMoves)
+
             # elif piece.type == "knight":
-            #
+
             # elif piece.type == "pawn":
 
         return possibleMoves
@@ -405,9 +459,8 @@ backButtonImg = Image("assets/buttons/back_button.png", (0,0))
 
 # Create local mode
 localBoard = Board()
-print(localBoard.whiteTurn)
 localBoard.place(Pieces("queen", "black"), (4, 4))
-testPieceMoves = localBoard.getPseudoLegalMoves((4, 4))
+testPieceMoves = localBoard.pseudoLegalMoves((4, 4))
 for move in testPieceMoves:
     localBoard.guiArray[move[1]].clr = clrSelected
 
