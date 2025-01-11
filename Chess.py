@@ -154,14 +154,14 @@ class Board:
         self.kingInDanger = None
 
         # Vectorise functions to apply them to arrays instead of single items
-        self.performOnPieces = np.vectorize(self.performOnPiece)
+        self.convToReadable = np.vectorize(self.convPcToReadable)
+        self.convToValue = np.vectorize(self.convPcToValue)
 
         self.arrangeStartPos()
 
     # Return human-readable chess board if (self) object called as string
     def __str__(self):
-        readableArray = copy.deepcopy(self.array)
-        readableArray = self.performOnPieces(readableArray, self.convToReadable)
+        readableArray = self.convToReadable(self.array)
         return str(readableArray)
 
     # Perform a function on a piece object
@@ -170,17 +170,26 @@ class Board:
             piece = function(piece)
         return piece
 
+    # Convert piece to readable string
+    def convPcToReadable(self, piece):
+        readablePiece = None
+        if piece != None:
+            readablePiece = f"{piece.clr[0]}_{piece.type}"
+        return readablePiece
+
+    # Convert piece to its value
+    def convPcToValue(self, piece):
+        value = 0.0
+        if piece != None:
+            value = piece.value
+        return value
+
     # Check if position in board
     def posValid(self, pos):
         if (pos[0] >= 0 and pos[0] <= 7) and (pos[1] >= 0 and pos[1] <= 7):
             return True
         else:
             return False
-
-    # Convert piece to readable string
-    def convToReadable(self, piece):
-        readablePiece = f"{piece.clr[0]}_{piece.type}"
-        return readablePiece
 
     # Get colour of a position
     def posColour(self, pos):
@@ -266,26 +275,23 @@ class Board:
         # Up-right movement (current pos -> top_right)
         traversal_x_values = range(x+1, 8)
         traversal_y_values = range(y-1, -1, -1)
-        for i in range(8):
-            # Assign position that is being currently examined to tempPos variable
+        traversal_length = min(len(traversal_x_values), len(traversal_y_values))
+        for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
-            # Get colour of piece occupying tempPos
             clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
                 if clrCheck == None:
-                    # If empty square continue traversing in same direction
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
-                    # If friendly square stop traversing
                     break
                 else:
-                    # If enemy square add move to possibleMoves and stop traversing
                     possibleMoves.append((pos, tempPos))
                     break
         # Down-right movement (current pos -> bottom_right)
         traversal_x_values = range(x+1, 8)
         traversal_y_values = range(y+1, 8)
-        for i in range(8):
+        traversal_length = min(len(traversal_x_values), len(traversal_y_values))
+        for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
             clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
@@ -300,7 +306,8 @@ class Board:
         # Up-left movement (current pos -> top_left)
         traversal_x_values = range(x-1, -1, -1)
         traversal_y_values = range(y-1, -1, -1)
-        for i in range(8):
+        traversal_length = min(len(traversal_x_values), len(traversal_y_values))
+        for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
             clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
@@ -314,7 +321,8 @@ class Board:
         # Down-left movement (current pos -> bottom_left)
         traversal_x_values = range(x-1, -1, -1)
         traversal_y_values = range(y+1, 8)
-        for i in range(8):
+        traversal_length = min(len(traversal_x_values), len(traversal_y_values))
+        for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
             clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
@@ -327,7 +335,6 @@ class Board:
                     break
 
         return possibleMoves
-
 
     # Get all pseudo legal moves for a position
     def pseudoLegalMoves(self, pos):
@@ -369,11 +376,68 @@ class Board:
                 if diagonalMoves != []:
                     possibleMoves.extend(diagonalMoves)
 
-            # elif piece.type == "knight":
+            elif piece.type == "knight":
+                # Above-piece movement (2left1up -> 1left2up -> 1right2up, 2right1up)
+                traversal_x_values = [x-2, x-1, x+1, x+2]
+                traversal_y_values = [y-1, y-2, y-2, y-1]
+                for i in range(4):
+                    tempPos = (traversal_y_values[i], traversal_x_values[i])
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if self.posColour(tempPos) != clrCheck:
+                            possibleMoves.append((pos, tempPos))
+                # Below-piece movement (2left1down -> 1left2down -> 1right2down -> 2right1down)
+                traversal_y_values = [y+1, y+2, y+2, y+1]
+                for i in range(4):
+                    tempPos = (traversal_y_values[i], traversal_x_values[i])
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if self.posColour(tempPos) != clrCheck:
+                            possibleMoves.append((pos, tempPos))
 
-            # elif piece.type == "pawn":
+            elif piece.type == "pawn":
+                # Traverse up for white pawn and down for black pawn
+                if piece.clr == "white":
+                    traversal_y_values = [y-1, y-2]
+                else:
+                    traversal_y_values = [y+1, y+2]
+
+                if piece.moved == False:
+                    # Pawn can move forward 2 spaces on first move
+                    for i in traversal_y_values:
+                        tempPos = (i, x)
+                        clrCheck = self.posColour(tempPos)
+                        if self.posValid(tempPos):
+                            if clrCheck == None:
+                                possibleMoves.append((pos, tempPos))
+                            else:
+                                break
+                else:
+                    # Pawn can move forward 1 space after first move
+                    tempPos = (traversal_y_values[0], x)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        if clrCheck == None:
+                            possibleMoves.append((pos, tempPos))
+
+                # Iterate through diagonal squares
+                for i in range(-1, 2, 2):
+                    tempPos = (traversal_y_values[0], x+i)
+                    clrCheck = self.posColour(tempPos)
+                    if self.posValid(tempPos):
+                        # If tempPos occupied by enemy, add move to possibleMoves
+                        if clrCheck not in (None, piece.clr):
+                            possibleMoves.append((pos, tempPos))
+                        else:
+                            break
 
         return possibleMoves
+
+    # Return board value using only material based evaluation
+    def eval(self):
+        valueArray = self.convToValue(self.array)
+        totalValue = np.sum(valueArray)
+        return totalValue
 
     # Set starting position for a standard chess game
     def arrangeStartPos(self):
@@ -403,18 +467,19 @@ class Board:
 
     # Move a piece to desired position
     def move(self, pos1, pos2):
-        # Append upcoming move position changes and copy of piece taken to previous moves list
+        # Append upcoming move position changes and data for piece taken and moved to previous moves list
         # If no piece taken, use NoneType to represent it
         if self.array[pos2] == None:
             self.prevMoves.append((pos1, pos2, None))
         else:
-            self.prevMoves.append((pos1, pos2, (self.array[pos2].type, self.array[pos2].clr, self.array[pos2].moved)))
+            # Format of item in prevMoves: (pos1, pos2, (takenPcType, takenPcClr, takenPcMoved), movingPcMoved)
+            self.prevMoves.append((pos1, pos2, (self.array[pos2].type, self.array[pos2].clr, self.array[pos2].moved),
+                                   self.array[pos1].moved))
 
         # Copy current piece object to new position and empty old position
         self.array[pos2] = Pieces(self.array[pos1].type, self.array[pos1].clr)
         self.array[pos1] = None
         self.array[pos2].moved = True
-
         # Flip turn
         self.whiteTurn = not self.whiteTurn
 
@@ -422,12 +487,13 @@ class Board:
         prevMove = self.prevMoves.pop()
         # Replace previous position of piece with copy of piece from current position
         self.array[prevMove[0]] = Pieces(self.array[prevMove[1]].type, self.array[prevMove[1]].clr)
+        self.array[prevMove[0]].moved = prevMove[3]
         # Replace current position with piece that was taken
         if prevMove[2] == None:
             self.array[prevMove[1]] = None
         else:
             self.array[prevMove[1]] = Pieces(prevMove[2][0], prevMove[2][1])
-
+            self.array[prevMove[1]].moved = [prevMove[2][2]]
         # Flip turn
         self.whiteTurn = not self.whiteTurn
 
@@ -450,6 +516,25 @@ class Pieces:
         self.type = pieceType
         self.clr = pieceColour
         self.moved = False
+        self.value = self.getValue()
+
+    def getValue(self):
+        value = 0.0
+        if self.type == "king":
+            value = 2
+        elif self.type == "queen":
+            value = 9
+        elif self.type == "rook":
+            value = 5
+        elif self.type == "bishop":
+            value = 3
+        elif self.type == "knight":
+            value = 3
+        elif self.type == "pawn":
+            value = 1
+        if self.clr == "black":
+            value = -value
+        return value
 
 # Initialise database
 db = Database("users.txt")
@@ -460,9 +545,11 @@ backButtonImg = Image("assets/buttons/back_button.png", (0,0))
 # Create local mode
 localBoard = Board()
 localBoard.place(Pieces("queen", "black"), (4, 4))
-testPieceMoves = localBoard.pseudoLegalMoves((4, 4))
+localBoard.move((4, 4), (5, 4))
+testPieceMoves = localBoard.pseudoLegalMoves((5, 4))
 for move in testPieceMoves:
     localBoard.guiArray[move[1]].clr = clrSelected
+print(localBoard.eval())
 
 # Create AI mode
 aiBoard = Board()
