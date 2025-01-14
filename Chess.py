@@ -21,6 +21,7 @@ clrSelected = pg.Color("gray")
 clrBlue = (59, 143, 227)
 clrLightSquare = (89, 89, 89)
 clrDarkSquare = (54, 54, 54)
+clrLegalSquare = (0, 255, 0)
 
 # Transition screen procedure
 def changeScreen(newScreen):
@@ -150,8 +151,8 @@ class Board:
         self.guiArray = np.full((8, 8), fill_value = None)
         self.prevMoves = []
         self.legalMoves = []
-        self.whiteTurn = True
-        self.kingInDanger = None
+        self.turn = "white"
+        self.kingInCheck = False
 
         # Vectorise functions to apply them to arrays instead of single items
         self.convToReadable = np.vectorize(self.convPcToReadable)
@@ -199,6 +200,13 @@ class Board:
         else:
             return piece.clr
 
+    # Flip turn
+    def flipTurn(self):
+        if self.turn == "white":
+            self.turn = "black"
+        else:
+            self.turn = "white"
+
     ## Pseudo => without considering putting own king in check
     # Get pseudo straight-line legal moves
     def pseudoStraightMoves(self, pos):
@@ -213,9 +221,9 @@ class Board:
         for i in range(y-1, -1, -1):
             # Assign position that is being currently examined to tempPos variable
             tempPos = (i, x)
-            # Get colour of piece occupying tempPos
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                # Get colour of piece occupying tempPos
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     # If empty square continue traversing in same direction
                     possibleMoves.append((pos, tempPos))
@@ -229,8 +237,8 @@ class Board:
         # Vertical movement (current pos -> down)
         for i in range(y+1, 8):
             tempPos = (i, x)
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
@@ -242,8 +250,8 @@ class Board:
         # Horizontal movement (current pos -> left)
         for i in range(x-1, -1, -1):
             tempPos = (y, i)
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
@@ -254,8 +262,8 @@ class Board:
         # Horizontal movement (current pos -> right)
         for i in range(x+1, 8):
             tempPos = (y, i)
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
@@ -278,8 +286,8 @@ class Board:
         traversal_length = min(len(traversal_x_values), len(traversal_y_values))
         for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
@@ -293,8 +301,8 @@ class Board:
         traversal_length = min(len(traversal_x_values), len(traversal_y_values))
         for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
@@ -309,8 +317,8 @@ class Board:
         traversal_length = min(len(traversal_x_values), len(traversal_y_values))
         for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
@@ -324,8 +332,8 @@ class Board:
         traversal_length = min(len(traversal_x_values), len(traversal_y_values))
         for i in range(traversal_length):
             tempPos = (traversal_y_values[i], traversal_x_values[i])
-            clrCheck = self.posColour(tempPos)
             if self.posValid(tempPos):
+                clrCheck = self.posColour(tempPos)
                 if clrCheck == None:
                     possibleMoves.append((pos, tempPos))
                 elif clrCheck == piece.clr:
@@ -335,6 +343,32 @@ class Board:
                     break
 
         return possibleMoves
+
+    # Check if current turn's colour is in check
+    def inCheck(self):
+        # Traverse from king's pos as each of these pieces to detect danger
+        traverseTypes = ["queen", "rook", "bishop", "knight", "pawn"]
+        inCheck = False
+
+        # Iterate through array to find king
+        for i in range(8):
+            for j in range(8):
+                piece = self.array[i][j]
+                if piece != None:
+                    # Ensure king is the desired colour
+                    if piece.type == "king" and piece.clr == self.turn:
+                        for type in traverseTypes:
+                            self.array[i][j] = Pieces(type, self.turn)
+                            moves = self.pseudoLegalMoves((i, j))
+                            # If test piece can move to enemy square and is of the same type, king's in check
+                            for move in moves:
+                                enemySqr = self.array[move[1]]
+                                if enemySqr != None:
+                                    if enemySqr.clr != piece.clr and enemySqr.type == type:
+                                        inCheck = True
+                        # Replace test piece with original king
+                        self.array[i][j] = Pieces("king", self.turn)
+        return inCheck
 
     # Get all pseudo legal moves for a position
     def pseudoLegalMoves(self, pos):
@@ -355,12 +389,13 @@ class Board:
                     # Horizontal movement (left -> current pos -> right)
                     for j in range(x-1, x+2):
                         tempPos = (i, j)
-                        clrCheck = self.posColour(tempPos)
-                        # Skip current pos of piece and ensure tempPos is valid board index
-                        if pos != tempPos and self.posValid(tempPos):
-                            # Ensure tempPos not occupied by friendly colour
-                            if self.posColour(tempPos) != clrCheck:
-                                possibleMoves.append((pos, tempPos))
+                        # Ensure tempPos is valid board index and skip current pos of piece
+                        if self.posValid(tempPos):
+                            if tempPos != pos:
+                                clrCheck = self.posColour(tempPos)
+                                # Ensure tempPos not occupied by friendly colour
+                                if clrCheck != piece.clr:
+                                    possibleMoves.append((pos, tempPos))
 
             elif piece.type == "queen":
                 if straightMoves != []:
@@ -382,17 +417,17 @@ class Board:
                 traversal_y_values = [y-1, y-2, y-2, y-1]
                 for i in range(4):
                     tempPos = (traversal_y_values[i], traversal_x_values[i])
-                    clrCheck = self.posColour(tempPos)
                     if self.posValid(tempPos):
-                        if self.posColour(tempPos) != clrCheck:
+                        clrCheck = self.posColour(tempPos)
+                        if clrCheck != piece.clr:
                             possibleMoves.append((pos, tempPos))
                 # Below-piece movement (2left1down -> 1left2down -> 1right2down -> 2right1down)
                 traversal_y_values = [y+1, y+2, y+2, y+1]
                 for i in range(4):
                     tempPos = (traversal_y_values[i], traversal_x_values[i])
-                    clrCheck = self.posColour(tempPos)
                     if self.posValid(tempPos):
-                        if self.posColour(tempPos) != clrCheck:
+                        clrCheck = self.posColour(tempPos)
+                        if clrCheck != piece.clr:
                             possibleMoves.append((pos, tempPos))
 
             elif piece.type == "pawn":
@@ -406,8 +441,8 @@ class Board:
                     # Pawn can move forward 2 spaces on first move
                     for i in traversal_y_values:
                         tempPos = (i, x)
-                        clrCheck = self.posColour(tempPos)
                         if self.posValid(tempPos):
+                            clrCheck = self.posColour(tempPos)
                             if clrCheck == None:
                                 possibleMoves.append((pos, tempPos))
                             else:
@@ -415,23 +450,36 @@ class Board:
                 else:
                     # Pawn can move forward 1 space after first move
                     tempPos = (traversal_y_values[0], x)
-                    clrCheck = self.posColour(tempPos)
                     if self.posValid(tempPos):
+                        clrCheck = self.posColour(tempPos)
                         if clrCheck == None:
                             possibleMoves.append((pos, tempPos))
 
                 # Iterate through diagonal squares
                 for i in range(-1, 2, 2):
                     tempPos = (traversal_y_values[0], x+i)
-                    clrCheck = self.posColour(tempPos)
                     if self.posValid(tempPos):
+                        clrCheck = self.posColour(tempPos)
                         # If tempPos occupied by enemy, add move to possibleMoves
                         if clrCheck not in (None, piece.clr):
                             possibleMoves.append((pos, tempPos))
                         else:
                             break
-
         return possibleMoves
+
+    # Get all legal moves for a position
+    def getLegalMoves(self, pos):
+        possibleMoves = self.pseudoLegalMoves(pos)
+        legalMoves = []
+        # If king's in danger after the move it's illegal
+        for move in possibleMoves:
+            self.move(move[0], move[1])
+            self.flipTurn()
+            if self.inCheck() != True:
+                legalMoves.append(move)
+            self.flipTurn()
+            self.undoMove()
+        return legalMoves
 
     # Return board value using only material based evaluation
     def eval(self):
@@ -470,9 +518,9 @@ class Board:
         # Append upcoming move position changes and data for piece taken and moved to previous moves list
         # If no piece taken, use NoneType to represent it
         if self.array[pos2] == None:
-            self.prevMoves.append((pos1, pos2, None))
+            self.prevMoves.append((pos1, pos2, None, self.array[pos1].moved))
         else:
-            # Format of item in prevMoves: (pos1, pos2, (takenPcType, takenPcClr, takenPcMoved), movingPcMoved)
+            # Format of item in prevMoves: (pos1, pos2, (takenPcType, takenPcClr, takenPcMoved), shiftedPcMoved)
             self.prevMoves.append((pos1, pos2, (self.array[pos2].type, self.array[pos2].clr, self.array[pos2].moved),
                                    self.array[pos1].moved))
 
@@ -480,8 +528,9 @@ class Board:
         self.array[pos2] = Pieces(self.array[pos1].type, self.array[pos1].clr)
         self.array[pos1] = None
         self.array[pos2].moved = True
-        # Flip turn
-        self.whiteTurn = not self.whiteTurn
+        # Flip turn and update check status
+        self.flipTurn()
+        self.kingInCheck = self.inCheck()
 
     def undoMove(self):
         prevMove = self.prevMoves.pop()
@@ -494,8 +543,9 @@ class Board:
         else:
             self.array[prevMove[1]] = Pieces(prevMove[2][0], prevMove[2][1])
             self.array[prevMove[1]].moved = [prevMove[2][2]]
-        # Flip turn
-        self.whiteTurn = not self.whiteTurn
+        # Flip turn and update check status
+        self.flipTurn()
+        self.kingInCheck = self.inCheck()
 
 
     def draw(self):
@@ -519,9 +569,9 @@ class Pieces:
         self.value = self.getValue()
 
     def getValue(self):
-        value = 0.0
+        value = 0
         if self.type == "king":
-            value = 2
+            value = 200
         elif self.type == "queen":
             value = 9
         elif self.type == "rook":
@@ -544,12 +594,6 @@ backButtonImg = Image("assets/buttons/back_button.png", (0,0))
 
 # Create local mode
 localBoard = Board()
-localBoard.place(Pieces("queen", "black"), (4, 4))
-localBoard.move((4, 4), (5, 4))
-testPieceMoves = localBoard.pseudoLegalMoves((5, 4))
-for move in testPieceMoves:
-    localBoard.guiArray[move[1]].clr = clrSelected
-print(localBoard.eval())
 
 # Create AI mode
 aiBoard = Board()
@@ -661,6 +705,27 @@ while running == True:
                 if backButtonImg.rect.collidepoint(event.pos):
                     if backButtonImg.mask.get_at(event.pos):
                         changeScreen("menu")
+                else:
+                    for i in range(8):
+                        for j in range(8):
+                            squareImg = localBoard.guiArray[i][j]
+                            if squareImg.rect.collidepoint(event.pos):
+                                squareImg.clr = clrSelected
+                            else:
+                                if i % 2 == j % 2:
+                                    squareImg.clr = clrLightSquare
+                                else:
+                                    squareImg.clr = clrDarkSquare
+            else:
+                legalMoves = []
+                for i in range(8):
+                    for j in range(8):
+                        squareImg = localBoard.guiArray[i][j]
+                        if squareImg.clr == clrSelected:
+                            legalMoves = localBoard.getLegalMoves((i, j))
+                            print(legalMoves)
+                            for move in legalMoves:
+                                localBoard.guiArray[move[1]].clr = clrLegalSquare
 
         # AI mode logic
         elif currentScreen == "ai":
