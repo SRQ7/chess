@@ -8,11 +8,12 @@ np.set_printoptions(linewidth=100)
 display = pg.display.set_mode((1440, 960))
 pg.display.set_caption("Chess")
 clock = pg.time.Clock()
-currentScreen = "local"
+currentScreen = "ai"
 previousScreen = None
 currentUser = None
 isAdmin = False
 running = True
+indicatedLegalMoves = []
 
 # Colours
 clrWhite = pg.Color("white")
@@ -153,23 +154,20 @@ class Board:
         self.legalMoves = []
         self.turn = "white"
         self.kingInCheck = False
+        self.gameWinner = None
 
         # Vectorise functions to apply them to arrays instead of single items
         self.convToReadable = np.vectorize(self.convPcToReadable)
         self.convToValue = np.vectorize(self.convPcToValue)
 
+        # Prerequisites for game
         self.arrangeStartPos()
+        self.updateLegalMoves()
 
     # Return human-readable chess board if (self) object called as string
     def __str__(self):
         readableArray = self.convToReadable(self.array)
         return str(readableArray)
-
-    # Perform a function on a piece object
-    def performOnPiece(self, piece, function):
-        if piece != None:
-            piece = function(piece)
-        return piece
 
     # Convert piece to readable string
     def convPcToReadable(self, piece):
@@ -353,8 +351,8 @@ class Board:
         # Iterate through array to find king
         for i in range(8):
             for j in range(8):
-                piece = self.array[i][j]
-                if piece != None:
+                if self.array[i][j] != None:
+                    piece = Pieces(self.array[i][j].type, self.array[i][j].clr)
                     # Ensure king is the desired colour
                     if piece.type == "king" and piece.clr == self.turn:
                         for type in traverseTypes:
@@ -436,7 +434,6 @@ class Board:
                     traversal_y_values = [y-1, y-2]
                 else:
                     traversal_y_values = [y+1, y+2]
-
                 if piece.moved == False:
                     # Pawn can move forward 2 spaces on first move
                     for i in traversal_y_values:
@@ -454,7 +451,6 @@ class Board:
                         clrCheck = self.posColour(tempPos)
                         if clrCheck == None:
                             possibleMoves.append((pos, tempPos))
-
                 # Iterate through diagonal squares
                 for i in range(-1, 2, 2):
                     tempPos = (traversal_y_values[0], x+i)
@@ -463,23 +459,49 @@ class Board:
                         # If tempPos occupied by enemy, add move to possibleMoves
                         if clrCheck not in (None, piece.clr):
                             possibleMoves.append((pos, tempPos))
-                        else:
-                            break
+
         return possibleMoves
 
     # Get all legal moves for a position
     def getLegalMoves(self, pos):
         possibleMoves = self.pseudoLegalMoves(pos)
         legalMoves = []
-        # If king's in danger after the move it's illegal
+        shiftedPc = (self.array[pos].type, self.array[pos].clr, self.array[pos].moved)
+
+        # If king's in check after the simulated move it's illegal
         for move in possibleMoves:
-            self.move(move[0], move[1])
-            self.flipTurn()
+            # Save attributes for piece that can be captured
+            takenPc = None
+            if self.array[move[1]] != None:
+                takenPc = (self.array[move[1]].type, self.array[move[1]].clr, self.array[move[1]].moved)
+            # Simulate move
+            self.array[move[1]] = Pieces(shiftedPc[0], shiftedPc[1])
+            self.array[pos] = None
+            # If king not in check after move, it's a legal move so add to list
             if self.inCheck() != True:
                 legalMoves.append(move)
-            self.flipTurn()
-            self.undoMove()
+            # Undo the simulated move and restore original board
+            self.array[pos] = Pieces(shiftedPc[0], shiftedPc[1])
+            self.array[pos].moved = shiftedPc[2]
+            if takenPc != None:
+                self.array[move[1]] = Pieces(takenPc[0], takenPc[1])
+                self.array[move[1]].moved = takenPc[2]
+            else:
+                self.array[move[1]] = None
+
         return legalMoves
+
+    # Update all available legal moves for board
+    def updateLegalMoves(self):
+        self.legalMoves = []
+        for i in range(8):
+            for j in range(8):
+                piece = self.array[i][j]
+                if piece != None:
+                    # If piece is of the same colour then attach its legal moves to board attribute
+                    if piece.clr == self.turn:
+                        self.legalMoves.extend(self.getLegalMoves((i, j)))
+
 
     # Return board value using only material based evaluation
     def eval(self):
@@ -528,9 +550,23 @@ class Board:
         self.array[pos2] = Pieces(self.array[pos1].type, self.array[pos1].clr)
         self.array[pos1] = None
         self.array[pos2].moved = True
-        # Flip turn and update check status
+        # Flip turn and update check status as well as legal moves attribute
         self.flipTurn()
         self.kingInCheck = self.inCheck()
+        self.updateLegalMoves()
+        # End game if checkmate
+        if currentBoard.kingInCheck and currentBoard.legalMoves == []:
+            if currentBoard.turn == "white":
+                currentBoard.gameWinner = "black"
+                print("Black has won the game with a checkmate!")
+                currentUser.gamesPlayed += 1
+                currentUser.gamesLost += 1
+            else:
+                currentBoard.gameWinner = "white"
+                print("White has won the game with a checkmate!")
+                currentUser.gamesPlayed += 1
+                currentUser.gamesWon += 1
+
 
     def undoMove(self):
         prevMove = self.prevMoves.pop()
@@ -543,9 +579,18 @@ class Board:
         else:
             self.array[prevMove[1]] = Pieces(prevMove[2][0], prevMove[2][1])
             self.array[prevMove[1]].moved = [prevMove[2][2]]
-        # Flip turn and update check status
+        # Flip turn and update check status as well as legal moves attribute
         self.flipTurn()
         self.kingInCheck = self.inCheck()
+        self.updateLegalMoves()
+        # End game if checkmate
+        if currentBoard.kingInCheck and currentBoard.legalMoves == []:
+            if currentBoard.turn == "white":
+                currentBoard.gameWinner = "black"
+                print("Black has won the game with a checkmate!")
+            else:
+                currentBoard.gameWinner = "white"
+                print("White has won the game with a checkmate!")
 
 
     def draw(self):
@@ -699,40 +744,60 @@ while running == True:
                 elif statsAndConfigBox.rect.collidepoint(event.pos):
                     changeScreen("statsConf")
 
-        # Local mode logic
-        elif currentScreen == "local":
+        # Local/AI mode logic
+        elif currentScreen in ("local", "ai"):
+            # Get board corresponding with mode
+            if currentScreen == "local":
+                currentBoard = localBoard
+            else:
+                currentBoard = aiBoard
+
             if event.type == pg.MOUSEBUTTONDOWN:
                 if backButtonImg.rect.collidepoint(event.pos):
                     if backButtonImg.mask.get_at(event.pos):
                         changeScreen("menu")
                 else:
+                    # Loop through chessboard
                     for i in range(8):
                         for j in range(8):
-                            squareImg = localBoard.guiArray[i][j]
-                            if squareImg.rect.collidepoint(event.pos):
-                                squareImg.clr = clrSelected
+                            squareImg = currentBoard.guiArray[i][j]
+                            piece = currentBoard.array[i][j]
+                            # If user clicks one of their pieces then select it
+                            if squareImg.rect.collidepoint(event.pos) and squareImg.clr != clrLegalSquare:
+                                if piece != None:
+                                    if piece.clr == currentBoard.turn:
+                                        squareImg.clr = clrSelected
+                            # If user clicks on an indicated legal move pos then move the piece to that location
+                            elif squareImg.rect.collidepoint(event.pos) and squareImg.clr == clrLegalSquare:
+                                for move in indicatedLegalMoves:
+                                    if move[1] == (i, j):
+                                        currentBoard.move(move[0], move[1])
+
+                                if i % 2 == j % 2:
+                                    squareImg.clr = clrLightSquare
+                                else:
+                                    squareImg.clr = clrDarkSquare
+                            # If user clicks neither chessboard nor back button then deselect all pieces
                             else:
                                 if i % 2 == j % 2:
                                     squareImg.clr = clrLightSquare
                                 else:
                                     squareImg.clr = clrDarkSquare
+            # Perform optimal move on AI's turn (if on AI mode)
+            elif currentBoard.turn == "black" and currentScreen == "ai":
+                print("WIP")
             else:
-                legalMoves = []
+                indicatedLegalMoves = []
                 for i in range(8):
                     for j in range(8):
-                        squareImg = localBoard.guiArray[i][j]
+                        squareImg = currentBoard.guiArray[i][j]
+                        # Display indicated legal moves based on selected square
                         if squareImg.clr == clrSelected:
-                            legalMoves = localBoard.getLegalMoves((i, j))
-                            print(legalMoves)
-                            for move in legalMoves:
-                                localBoard.guiArray[move[1]].clr = clrLegalSquare
-
-        # AI mode logic
-        elif currentScreen == "ai":
-            if event.type == pg.MOUSEBUTTONDOWN:
-                if backButtonImg.rect.collidepoint(event.pos):
-                    if backButtonImg.mask.get_at(event.pos):
-                        changeScreen("menu")
+                            for move in currentBoard.legalMoves:
+                                if move[0] == (i, j):
+                                    indicatedLegalMoves.append(move)
+                            for move in indicatedLegalMoves:
+                                currentBoard.guiArray[move[1]].clr = clrLegalSquare
 
         # Stats and config screen logic
         elif currentScreen == "statsConf":
