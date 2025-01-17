@@ -14,6 +14,7 @@ currentUser = None
 isAdmin = False
 running = True
 indicatedLegalMoves = []
+movesEvaluated = 0
 
 # Colours
 clrWhite = pg.Color("white")
@@ -154,7 +155,7 @@ class Board:
         self.legalMoves = []
         self.turn = "white"
         self.kingInCheck = False
-        self.gameWinner = None
+        self.gameResult = None
 
         # Vectorise functions to apply them to arrays instead of single items
         self.convToReadable = np.vectorize(self.convPcToReadable)
@@ -214,7 +215,7 @@ class Board:
         possibleMoves = []
 
         ## COMMENTS OF THIS LOOP CAN BE REFERRED TO WHEN LOOKING AT:
-        ## pseudoStraightMoves, pseudoDiagonalMoves, pseudoLegalMoves
+        ## pseudoStraightMoves, pseudoDiagonalMoves, getPseudoLegalMoves
         # Vertical movement (current pos -> up)
         for i in range(y-1, -1, -1):
             # Assign position that is being currently examined to tempPos variable
@@ -357,7 +358,7 @@ class Board:
                     if piece.type == "king" and piece.clr == self.turn:
                         for type in traverseTypes:
                             self.array[i][j] = Pieces(type, self.turn)
-                            moves = self.pseudoLegalMoves((i, j))
+                            moves = self.getPseudoLegalMoves((i, j))
                             # If test piece can move to enemy square and is of the same type, king's in check
                             for move in moves:
                                 enemySqr = self.array[move[1]]
@@ -369,7 +370,7 @@ class Board:
         return inCheck
 
     # Get all pseudo legal moves for a position
-    def pseudoLegalMoves(self, pos):
+    def getPseudoLegalMoves(self, pos):
         piece = self.array[pos]
         x = pos[1]
         y = pos[0]
@@ -464,7 +465,7 @@ class Board:
 
     # Get all legal moves for a position
     def getLegalMoves(self, pos):
-        possibleMoves = self.pseudoLegalMoves(pos)
+        possibleMoves = self.getPseudoLegalMoves(pos)
         legalMoves = []
         shiftedPc = (self.array[pos].type, self.array[pos].clr, self.array[pos].moved)
 
@@ -502,6 +503,56 @@ class Board:
                     if piece.clr == self.turn:
                         self.legalMoves.extend(self.getLegalMoves((i, j)))
 
+    # Get the optimal move for current board state
+    def getOptimalMove(self, depth, alpha, beta):
+        global movesEvaluated
+
+        # If at terminal player node without being in checkmate
+        if depth == 0 or self.gameResult != None:
+            movesEvaluated += 1
+            if self.gameResult == "white":
+                currentEval = self.eval() + 500
+            elif self.gameResult == "black":
+                currentEval = self.eval() - 500
+            else:
+                currentEval = self.eval()
+            return None, currentEval
+
+        # If neither at player terminal node nor in checkmate
+        else:
+            # Maximise
+            if self.turn == "white":
+                maxEval = float('-inf')
+                bestMove = None
+                for move in self.legalMoves:
+                    movesEvaluated += 1
+                    self.move(move[0], move[1])
+                    optimalMove = self.getOptimalMove(depth-1, alpha, beta)
+                    self.undoMove()
+                    if optimalMove[1] > maxEval:
+                        maxEval = optimalMove[1]
+                        bestMove = move
+                    alpha = max(alpha, maxEval)
+                    if beta <= alpha:
+                        break
+                return bestMove, maxEval
+
+            # Minimise
+            elif self.turn == "black":
+                minEval = float('inf')
+                bestMove = None
+                for move in self.legalMoves:
+                    movesEvaluated += 1
+                    self.move(move[0], move[1])
+                    optimalMove = self.getOptimalMove(depth-1, alpha, beta)
+                    self.undoMove()
+                    if optimalMove[1] < minEval:
+                        minEval = optimalMove[1]
+                        bestMove = move
+                    beta = min(beta, minEval)
+                    if beta <= alpha:
+                        break
+                return bestMove, minEval
 
     # Return board value using only material based evaluation
     def eval(self):
@@ -555,17 +606,22 @@ class Board:
         self.kingInCheck = self.inCheck()
         self.updateLegalMoves()
         # End game if checkmate
-        if currentBoard.kingInCheck and currentBoard.legalMoves == []:
-            if currentBoard.turn == "white":
-                currentBoard.gameWinner = "black"
+        if self.kingInCheck and self.legalMoves == []:
+            if self.turn == "white":
+                self.gameResult = "black"
                 print("Black has won the game with a checkmate!")
                 currentUser.gamesPlayed += 1
                 currentUser.gamesLost += 1
             else:
-                currentBoard.gameWinner = "white"
+                self.gameResult = "white"
                 print("White has won the game with a checkmate!")
                 currentUser.gamesPlayed += 1
                 currentUser.gamesWon += 1
+        # End game if stalemate
+        elif not self.kingInCheck and self.legalMoves == []:
+            self.gameResult = None
+            print("Game has ended in a stalemate.")
+            currentUser.gamesPlayed += 1
 
 
     def undoMove(self):
@@ -785,7 +841,14 @@ while running == True:
                                     squareImg.clr = clrDarkSquare
             # Perform optimal move on AI's turn (if on AI mode)
             elif currentBoard.turn == "black" and currentScreen == "ai":
-                print("WIP")
+                if currentBoard.gameResult == None:
+                    optimalMove = currentBoard.getOptimalMove(3, float('-inf'), float('inf'))
+                    print(movesEvaluated)
+                    movesEvaluated = 0
+                    if optimalMove[0] != None:
+                        currentBoard.move(optimalMove[0][0], optimalMove[0][1])
+                    else:
+                        print("No move available.")
             else:
                 indicatedLegalMoves = []
                 for i in range(8):
