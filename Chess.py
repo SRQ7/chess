@@ -4,26 +4,26 @@ import sys, hashlib, copy, time
 
 # Initialise pygame window with necessary variables
 pg.init()
-np.set_printoptions(linewidth=100)
 display = pg.display.set_mode((1440, 960))
 pg.display.set_caption("Chess")
 clock = pg.time.Clock()
-currentScreen = "ai"
+currentScreen = "login"
 previousScreen = None
 currentUser = None
 isAdmin = False
 running = True
 indicatedLegalMoves = []
-movesEvaluated = 0
 
 # Colours
 clrWhite = pg.Color("white")
 clrBlack = pg.Color("black")
 clrSelected = pg.Color("gray")
 clrBlue = (59, 143, 227)
+clrRed = (210, 4, 45)
 clrLightSquare = (89, 89, 89)
 clrDarkSquare = (54, 54, 54)
 clrLegalSquare = (0, 255, 0)
+clrOptimalSquare = (191, 64, 191)
 
 # Transition screen procedure
 def changeScreen(newScreen):
@@ -381,7 +381,6 @@ class Board:
 
             # Loop through each possible move for corresponding piece
             # If the move is valid, add it to possibleMoves
-
             if piece.type == "king":
                 # Vertical movement (up -> current pos -> down)
                 for i in range(y-1, y+2):
@@ -505,11 +504,8 @@ class Board:
 
     # Get the optimal move for current board state
     def getOptimalMove(self, depth, alpha, beta):
-        global movesEvaluated
-
         # If at terminal player node without being in checkmate
         if depth == 0 or self.gameResult != None:
-            movesEvaluated += 1
             if self.gameResult == "white":
                 currentEval = self.eval() + 500
             elif self.gameResult == "black":
@@ -518,14 +514,13 @@ class Board:
                 currentEval = self.eval()
             return None, currentEval
 
-        # If neither at player terminal node nor in checkmate
+        # If neither at max depth nor in checkmate
         else:
             # Maximise
             if self.turn == "white":
                 maxEval = float('-inf')
                 bestMove = None
                 for move in self.legalMoves:
-                    movesEvaluated += 1
                     self.move(move[0], move[1])
                     optimalMove = self.getOptimalMove(depth-1, alpha, beta)
                     self.undoMove()
@@ -542,7 +537,6 @@ class Board:
                 minEval = float('inf')
                 bestMove = None
                 for move in self.legalMoves:
-                    movesEvaluated += 1
                     self.move(move[0], move[1])
                     optimalMove = self.getOptimalMove(depth-1, alpha, beta)
                     self.undoMove()
@@ -704,7 +698,8 @@ usernameBox = Textbox((420, 350), (600, 50), clrWhite, "", 40, clrBlack, (5, -4)
 passwordBox = Textbox((420, 410), (600, 50), clrWhite, "", 40, clrBlack, (5, -4))
 loginBox = Textbox((565, 470), (120, 55), clrWhite, "LOGIN", 40, clrBlack, (5, -2))
 registerBox = Textbox((695, 470), (190, 55), clrWhite, "REGISTER", 40, clrBlack, (5, -2))
-loginScreenBoxes = [usernameBox, passwordBox, loginBox, registerBox]
+alertBox = Textbox((420, 290), (600, 50), clrBlue, "", 30, clrRed, (-45, -4))
+loginScreenBoxes = [usernameBox, passwordBox, loginBox, registerBox, alertBox]
 
 # Create main menu
 localModeBox = Textbox((525, 275), (400, 80), clrWhite, "Local 2-Player", 50, clrBlack, (35, -2))
@@ -744,9 +739,10 @@ while running == True:
 
                 # If user clicks register box then validate inputs + add entry to DB
                 elif registerBox.rect.collidepoint(event.pos):
-                    if len(usernameBox.txt) < 3 or len(passwordBox.txt) < 6:
-                        print("Ensure your username is at least 3 characters long, "
-                              "and your password is at least 6 characters long.")
+                    if len(usernameBox.txt) < 3:
+                        alertBox.txt = "Ensure your username is at least 3 characters long."
+                    elif len(passwordBox.txt) < 6:
+                        alertBox.txt = "Ensure your password is at least 6 characters long."
                     elif usernameBox.txt not in db.dict:
                         currentUser = Player(usernameBox.txt, getHash(passwordBox.txt))
                         db.updateDict(currentUser)
@@ -808,59 +804,60 @@ while running == True:
             else:
                 currentBoard = aiBoard
 
-            if event.type == pg.MOUSEBUTTONDOWN:
-                if backButtonImg.rect.collidepoint(event.pos):
-                    if backButtonImg.mask.get_at(event.pos):
-                        changeScreen("menu")
+            # Only continue game logic if it hasn't ended
+            if currentBoard.gameResult == None:
+                if event.type == pg.MOUSEBUTTONDOWN:
+                    if backButtonImg.rect.collidepoint(event.pos):
+                        if backButtonImg.mask.get_at(event.pos):
+                            changeScreen("menu")
+                    else:
+                        # Loop through chessboard
+                        for i in range(8):
+                            for j in range(8):
+                                squareImg = currentBoard.guiArray[i][j]
+                                piece = currentBoard.array[i][j]
+                                # If user clicks one of their pieces then select it
+                                if squareImg.rect.collidepoint(event.pos) and squareImg.clr != clrLegalSquare:
+                                    if piece != None:
+                                        if piece.clr == currentBoard.turn:
+                                            squareImg.clr = clrSelected
+                                # If user clicks on an indicated legal move pos then move the piece to that location
+                                # Highlight the previous optimal move after the player move has been made
+                                elif squareImg.rect.collidepoint(event.pos) and squareImg.clr == clrLegalSquare:
+                                    for move in indicatedLegalMoves:
+                                        if move[1] == (i, j):
+                                            # Colour the initial and final positions of the optimal move
+                                            previousOptimalMove = currentBoard.getOptimalMove(3, float('-inf'), float('inf'))
+                                            currentBoard.guiArray[previousOptimalMove[0][0]].clr = clrOptimalSquare
+                                            currentBoard.guiArray[previousOptimalMove[0][1]].clr = clrOptimalSquare
+                                            # Perform move
+                                            currentBoard.move(move[0], move[1])
+                                # If user clicks neither chessboard nor back button then deselect all pieces
+                                else:
+                                    if i % 2 == j % 2:
+                                        squareImg.clr = clrLightSquare
+                                    else:
+                                        squareImg.clr = clrDarkSquare
+                # Perform optimal move on AI's turn (if on AI mode)
+                elif currentBoard.turn == "black" and currentScreen == "ai":
+                    if currentBoard.gameResult == None:
+                        optimalMove = currentBoard.getOptimalMove(3, float('-inf'), float('inf'))
+                        if optimalMove[0] != None:
+                            currentBoard.move(optimalMove[0][0], optimalMove[0][1])
+                        else:
+                            print("No move available.")
                 else:
-                    # Loop through chessboard
+                    indicatedLegalMoves = []
                     for i in range(8):
                         for j in range(8):
                             squareImg = currentBoard.guiArray[i][j]
-                            piece = currentBoard.array[i][j]
-                            # If user clicks one of their pieces then select it
-                            if squareImg.rect.collidepoint(event.pos) and squareImg.clr != clrLegalSquare:
-                                if piece != None:
-                                    if piece.clr == currentBoard.turn:
-                                        squareImg.clr = clrSelected
-                            # If user clicks on an indicated legal move pos then move the piece to that location
-                            elif squareImg.rect.collidepoint(event.pos) and squareImg.clr == clrLegalSquare:
+                            # Display indicated legal moves based on selected square
+                            if squareImg.clr == clrSelected:
+                                for move in currentBoard.legalMoves:
+                                    if move[0] == (i, j):
+                                        indicatedLegalMoves.append(move)
                                 for move in indicatedLegalMoves:
-                                    if move[1] == (i, j):
-                                        currentBoard.move(move[0], move[1])
-
-                                if i % 2 == j % 2:
-                                    squareImg.clr = clrLightSquare
-                                else:
-                                    squareImg.clr = clrDarkSquare
-                            # If user clicks neither chessboard nor back button then deselect all pieces
-                            else:
-                                if i % 2 == j % 2:
-                                    squareImg.clr = clrLightSquare
-                                else:
-                                    squareImg.clr = clrDarkSquare
-            # Perform optimal move on AI's turn (if on AI mode)
-            elif currentBoard.turn == "black" and currentScreen == "ai":
-                if currentBoard.gameResult == None:
-                    optimalMove = currentBoard.getOptimalMove(3, float('-inf'), float('inf'))
-                    print(movesEvaluated)
-                    movesEvaluated = 0
-                    if optimalMove[0] != None:
-                        currentBoard.move(optimalMove[0][0], optimalMove[0][1])
-                    else:
-                        print("No move available.")
-            else:
-                indicatedLegalMoves = []
-                for i in range(8):
-                    for j in range(8):
-                        squareImg = currentBoard.guiArray[i][j]
-                        # Display indicated legal moves based on selected square
-                        if squareImg.clr == clrSelected:
-                            for move in currentBoard.legalMoves:
-                                if move[0] == (i, j):
-                                    indicatedLegalMoves.append(move)
-                            for move in indicatedLegalMoves:
-                                currentBoard.guiArray[move[1]].clr = clrLegalSquare
+                                    currentBoard.guiArray[move[1]].clr = clrLegalSquare
 
         # Stats and config screen logic
         elif currentScreen == "statsConf":
