@@ -1,6 +1,6 @@
 import pygame as pg
 import numpy as np
-import sys, hashlib, copy, time
+import sys, hashlib, copy
 
 # Initialise pygame window with necessary variables
 pg.init()
@@ -12,6 +12,7 @@ previousScreen = None
 currentUser = None
 isAdmin = False
 running = True
+testMove = False
 indicatedLegalMoves = []
 
 # Colours
@@ -521,9 +522,12 @@ class Board:
                 maxEval = float('-inf')
                 bestMove = None
                 for move in self.legalMoves:
+                    global testMove
+                    testMove = True
                     self.move(move[0], move[1])
                     optimalMove = self.getOptimalMove(depth-1, alpha, beta)
                     self.undoMove()
+                    testMove = False
                     if optimalMove[1] > maxEval:
                         maxEval = optimalMove[1]
                         bestMove = move
@@ -537,9 +541,11 @@ class Board:
                 minEval = float('inf')
                 bestMove = None
                 for move in self.legalMoves:
+                    testMove = True
                     self.move(move[0], move[1])
                     optimalMove = self.getOptimalMove(depth-1, alpha, beta)
                     self.undoMove()
+                    testMove = False
                     if optimalMove[1] < minEval:
                         minEval = optimalMove[1]
                         bestMove = move
@@ -599,23 +605,26 @@ class Board:
         self.flipTurn()
         self.kingInCheck = self.inCheck()
         self.updateLegalMoves()
-        # End game if checkmate
-        if self.kingInCheck and self.legalMoves == []:
-            if self.turn == "white":
-                self.gameResult = "black"
-                print("Black has won the game with a checkmate!")
+        # Check game end conditions
+        global testMove
+        if not testMove:
+            # End game if checkmate
+            if self.kingInCheck and self.legalMoves == []:
+                if self.turn == "white":
+                    self.gameResult = "black"
+                    print("Black has won the game with a checkmate!")
+                    currentUser.gamesPlayed += 1
+                    currentUser.gamesLost += 1
+                else:
+                    self.gameResult = "white"
+                    print("White has won the game with a checkmate!")
+                    currentUser.gamesPlayed += 1
+                    currentUser.gamesWon += 1
+            # End game if stalemate
+            elif not self.kingInCheck and self.legalMoves == []:
+                self.gameResult = None
+                print("Game has ended in a stalemate.")
                 currentUser.gamesPlayed += 1
-                currentUser.gamesLost += 1
-            else:
-                self.gameResult = "white"
-                print("White has won the game with a checkmate!")
-                currentUser.gamesPlayed += 1
-                currentUser.gamesWon += 1
-        # End game if stalemate
-        elif not self.kingInCheck and self.legalMoves == []:
-            self.gameResult = None
-            print("Game has ended in a stalemate.")
-            currentUser.gamesPlayed += 1
 
 
     def undoMove(self):
@@ -633,14 +642,26 @@ class Board:
         self.flipTurn()
         self.kingInCheck = self.inCheck()
         self.updateLegalMoves()
-        # End game if checkmate
-        if currentBoard.kingInCheck and currentBoard.legalMoves == []:
-            if currentBoard.turn == "white":
-                currentBoard.gameWinner = "black"
-                print("Black has won the game with a checkmate!")
-            else:
-                currentBoard.gameWinner = "white"
-                print("White has won the game with a checkmate!")
+        # Check game end conditions
+        global testMove
+        if not testMove:
+            # End game if checkmate
+            if self.kingInCheck and self.legalMoves == []:
+                if self.turn == "white":
+                    self.gameResult = "black"
+                    print("Black has won the game with a checkmate!")
+                    currentUser.gamesPlayed += 1
+                    currentUser.gamesLost += 1
+                else:
+                    self.gameResult = "white"
+                    print("White has won the game with a checkmate!")
+                    currentUser.gamesPlayed += 1
+                    currentUser.gamesWon += 1
+            # End game if stalemate
+            elif not self.kingInCheck and self.legalMoves == []:
+                self.gameResult = None
+                print("Game has ended in a stalemate.")
+                currentUser.gamesPlayed += 1
 
 
     def draw(self):
@@ -684,15 +705,6 @@ class Pieces:
 # Initialise database
 db = Database("users.txt")
 
-# Create back button (previous screen)
-backButtonImg = Image("assets/buttons/back_button.png", (0,0))
-
-# Create local mode
-localBoard = Board()
-
-# Create AI mode
-aiBoard = Board()
-
 # Create login screen
 usernameBox = Textbox((420, 350), (600, 50), clrWhite, "", 40, clrBlack, (5, -4))
 passwordBox = Textbox((420, 410), (600, 50), clrWhite, "", 40, clrBlack, (5, -4))
@@ -701,11 +713,18 @@ registerBox = Textbox((695, 470), (190, 55), clrWhite, "REGISTER", 40, clrBlack,
 alertBox = Textbox((420, 290), (600, 50), clrBlue, "", 30, clrRed, (-45, -4))
 loginScreenBoxes = [usernameBox, passwordBox, loginBox, registerBox, alertBox]
 
+# Create back button (go to previous screen)
+backButtonImg = Image("assets/buttons/back_button.png", (0,0))
+
 # Create main menu
 localModeBox = Textbox((525, 275), (400, 80), clrWhite, "Local 2-Player", 50, clrBlack, (35, -2))
 aiModeBox = Textbox((525, 380), (400, 80), clrWhite, "AI Opponent", 50, clrBlack, (53, -2))
 statsAndConfigBox = Textbox((525, 485), (400, 80), clrWhite, "Stats & Config", 50, clrBlack, (40, -2))
 mainMenuBoxes = [localModeBox, aiModeBox, statsAndConfigBox]
+
+# Create local/AI modes
+localBoard = Board()
+aiBoard = Board()
 
 # Create stats and config screen
 userStatsBox = Textbox((210,170), (270,50), clrBlue, "User Statistics", 35, clrWhite, (20, 2))
