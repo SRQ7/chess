@@ -52,5 +52,4 @@ The computer opponent and optimal move generation uses the same underlying algor
 
 ## Credits
 
-Chess piece sprites: [JohnPablok's improved Cburnett chess set](https://opengameart.org/content/chess-pieces-and-board-squares),
-Licensed: [CC-BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/).
+Chess piece sprites: [JohnPablok's improved Cburnett chess set](https://opengameart.org/content/chess-pieces-and-board-squares), license [CC-BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/).
