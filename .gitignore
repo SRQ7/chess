@@ -342,3 +342,4 @@ cython_debug/
 .pypirc
 
 users.txt
+.DS_Store
