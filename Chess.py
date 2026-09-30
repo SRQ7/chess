@@ -1,6 +1,7 @@
 import pygame as pg
 import numpy as np
 import sys, hashlib, copy
+import ast
 
 # Initialise pygame window with necessary variables
 pg.init()
@@ -45,13 +46,16 @@ class Database:
 
     # Convert text file to dictionary
     def getDict(self):
-        file = open(self.file, "r")
+        try:
+            file = open(self.file, "r")
+        except FileNotFoundError:
+            return dict()
         fileDict = file.readlines()
         fileDict = [line.strip() for line in fileDict]
         fileDict = "".join(fileDict)
         file.close()
         if fileDict != "":
-            return eval(fileDict)
+            return ast.literal_eval(fileDict)
         else:
             return dict()
 
@@ -766,7 +770,7 @@ while running == True:
                         currentUser = Player(usernameBox.txt, getHash(passwordBox.txt))
                         db.updateDict(currentUser)
                         statsViewUser = copy.deepcopy(currentUser)
-                        if currentUser.name == "Mikee":
+                        if currentUser.name == "Admin":
                             isAdmin = True
                         changeScreen("menu")
                     else:
@@ -778,7 +782,7 @@ while running == True:
                         currentUser = Player(usernameBox.txt, getHash(passwordBox.txt))
                         currentUser.getStats(db)
                         statsViewUser = copy.deepcopy(currentUser)
-                        if currentUser.name == "Mikee":
+                        if currentUser.name == "Admin":
                             isAdmin = True
                         changeScreen("menu")
                     else:
