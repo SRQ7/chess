@@ -369,10 +369,11 @@ class Board:
                                 enemySqr = self.array[move[1]]
                                 if enemySqr != None:
                                     if enemySqr.clr != piece.clr and enemySqr.type == type:
-                                        inCheck = True
+                                        # Replace test piece with original king
+                                        self.array[i][j] = Pieces("king", self.turn)
+                                        return True
                         # Replace test piece with original king
                         self.array[i][j] = Pieces("king", self.turn)
-        return inCheck
 
     # Get all pseudo legal moves for a position
     def getPseudoLegalMoves(self, pos):
@@ -509,6 +510,8 @@ class Board:
 
     # Get the optimal move for current board state
     def getOptimalMove(self, depth, alpha, beta):
+        global testMove
+
         # If at terminal player node without being in checkmate
         if depth == 0 or self.gameResult != None:
             if self.gameResult == "white":
@@ -526,12 +529,12 @@ class Board:
                 maxEval = float('-inf')
                 bestMove = None
                 for move in self.legalMoves:
-                    global testMove
+                    prev = testMove
                     testMove = True
                     self.move(move[0], move[1])
                     optimalMove = self.getOptimalMove(depth-1, alpha, beta)
                     self.undoMove()
-                    testMove = False
+                    testMove = prev
                     if optimalMove[1] > maxEval:
                         maxEval = optimalMove[1]
                         bestMove = move
@@ -545,11 +548,12 @@ class Board:
                 minEval = float('inf')
                 bestMove = None
                 for move in self.legalMoves:
+                    prev = testMove
                     testMove = True
                     self.move(move[0], move[1])
                     optimalMove = self.getOptimalMove(depth-1, alpha, beta)
                     self.undoMove()
-                    testMove = False
+                    testMove = prev
                     if optimalMove[1] < minEval:
                         minEval = optimalMove[1]
                         bestMove = move
@@ -645,11 +649,11 @@ class Board:
         # Flip turn and update check status as well as legal moves attribute
         self.flipTurn()
         self.kingInCheck = self.inCheck()
-        self.updateLegalMoves()
         # Check game end conditions
         global testMove
         if not testMove:
             # End game if checkmate
+            self.updateLegalMoves()
             if self.kingInCheck and self.legalMoves == []:
                 if self.turn == "white":
                     self.gameResult = "black"
