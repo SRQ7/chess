@@ -11,7 +11,7 @@ A desktop chess application developed in Python using the Pygame module. It has 
 - **Local two-player** and **computer opponent** game modes
 - Legal move generation with complete check, checkmate and stalemate detection
 - Highlighting of legal moves for selected piece
-- Optional optimal move highlighting alongside normal play
+- Optimal move highlighting alongside normal play
 - Local user account + statistics storage with SHA-256 hashed passwords
 - Statistics panel including games played, won, lost and winrate with admin lookup of other users
 
@@ -52,4 +52,4 @@ The computer opponent and optimal move generation uses the same underlying algor
 
 ## Credits
 
-Chess piece sprites: [JohnPablok's improved Cburnett chess set](https://opengameart.org/content/chess-pieces-and-board-squares), license [CC-BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/).
+The chess piece sprites are from [JohnPablok's improved Cburnett chess set](https://opengameart.org/content/chess-pieces-and-board-squares) under the license [CC-BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/)
