@@ -42,7 +42,7 @@ Check detection works by placing every opposite-team piece type in place of the 
 
 The computer opponent and optimal move generation uses the same underlying algorithm: minimax with alpha-beta pruning. The depth used is 3 and this represents the difficulty of the computer opponent as well as quality of optimal moves (higher = better). Positions are solely scored on the outcome of material exchanges with standard piece values, including a large enough bonus for checkmate to prioritise it over all other positions. Alpha-beta discards branches that cannot change the final decision, giving a substantial increase in performance over standard minimax.
 
-![Showing optimal move that should've been done (purple) instead of move that was played (green)](assets/demo/stats-lookup-demo.png)
+![Showing optimal move that should've been done (purple) instead of move that was played (green)](assets/demo/optimal-moves-demo.png)
 
 *Optimal move that could've been made shown in purple, actual move made by player in green*
 
