@@ -2,7 +2,7 @@
 
 A desktop chess application developed in Python using the Pygame module. It has both local two-player and computer opponent game modes.
 
-![Showing legal moves for queen on chess board](assets/legal-moves-demo.png)
+![Showing legal moves for queen on chess board](assets/demo/legal-moves-demo.png)
 
 *Legal moves for selected piece, demonstrating friendly blocks and enemy captures*
 
@@ -15,7 +15,7 @@ A desktop chess application developed in Python using the Pygame module. It has 
 - Local user account + statistics storage with SHA-256 hashed passwords
 - Statistics panel including games played, won, lost and winrate with admin lookup of other users
 
-![Showing game statistics panel with admin privileges](assets/stats-lookup-demo.png)
+![Showing game statistics panel with admin privileges](assets/demo/stats-lookup-demo.png)
 
 *User game statistics with an admin-only search bar to lookup other users*
 
